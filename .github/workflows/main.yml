@@ -148,7 +148,7 @@ jobs:
           fi
 
           if docker run -d --name "$container" --restart unless-stopped \
-            -p 127.0.0.1:8080:8080 \
+            -p 8080:8080 \
             -e SPRING_PROFILES_ACTIVE=mysql \
             -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
             -e S3_ENABLED -e S3_BUCKET \
