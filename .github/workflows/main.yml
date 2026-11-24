@@ -88,20 +88,24 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           USER_SERVER: ${{ secrets.USER_SERVER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          MYSQL_JDBC_URL: ${{ secrets.MYSQL_JDBC_URL }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
           : "${EC2_HOST:?Missing EC2_HOST}" "${USER_SERVER:?Missing USER_SERVER}" "${EC2_SSH_KEY:?Missing EC2_SSH_KEY}"
+          : "${MYSQL_JDBC_URL:?Missing MYSQL_JDBC_URL}" "${MYSQL_USERNAME:?Missing MYSQL_USERNAME}" "${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}"
           umask 077
           key=$(mktemp)
           known_hosts=$(mktemp)
           trap 'rm -f "$key" "$known_hosts"' EXIT
           printf '%s\n' "$EC2_SSH_KEY" > "$key"
 
-          ssh -i "$key" -l "$USER_SERVER" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
-            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts" \
-            -- "$EC2_HOST" bash -s -- "$IMAGE_TAG" <<'REMOTE'
+          {
+            printf 'export MYSQL_JDBC_URL=%q MYSQL_USERNAME=%q MYSQL_PASSWORD=%q\n' \
+              "$MYSQL_JDBC_URL" "$MYSQL_USERNAME" "$MYSQL_PASSWORD"
+            cat <<'REMOTE'
           set -euo pipefail
           image="ignarayaa/cloudsumativa2:$1"
           container=cloudsumativa2
@@ -120,7 +124,8 @@ jobs:
 
           if docker run -d --name "$container" --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
-            -v cloudsumativa2-data:/app/data \
+            -e SPRING_PROFILES_ACTIVE=mysql \
+            -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
             -v cloudsumativa2-tickets:/app/storage/tickets \
             "$image"; then
             for attempt in {1..30}; do
@@ -145,3 +150,7 @@ jobs:
           fi
           exit 1
           REMOTE
+          } | ssh -i "$key" -l "$USER_SERVER" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts" \
+            -- "$EC2_HOST" bash -s -- "$IMAGE_TAG"
