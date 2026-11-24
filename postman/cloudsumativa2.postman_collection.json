@@ -1,0 +1,677 @@
+{
+  "info": {
+    "name": "cloudsumativa2 - Pruebas locales",
+    "description": "Iniciar cloudsumativa2 con ./mvnw spring-boot:run y ejecutar la colección en orden. baseUrl apunta a http://localhost:8080. Cada ejecución crea un usuario y un evento, guarda sus IDs y elimina el ticket al final. Para probar S3, iniciar la API con S3_ENABLED=true y un bucket configurado y cambiar ejecutarS3 a true en la colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "usuarioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticketId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ejecutarS3",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "correoPrueba",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Crear usuario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "usuarios"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Ignacio\",\n  \"correo\": \"{{correoPrueba}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 201\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) { const data = pm.response.json(); pm.test(\"ID generado\", function () { pm.expect(data.id).to.be.a(\"number\"); }); pm.collectionVariables.set(\"usuarioId\", data.id); }"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"correoPrueba\", \"u\" + Date.now().toString(36) + \"@test.cl\");"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "02 - Crear evento",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/eventos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Concierto de prueba\",\n  \"fecha\": \"2027-01-10T20:00:00\",\n  \"precio\": 15000,\n  \"cuposDisponibles\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 201\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) { const data = pm.response.json(); pm.test(\"ID generado\", function () { pm.expect(data.id).to.be.a(\"number\"); }); pm.collectionVariables.set(\"eventoId\", data.id); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "03 - Listar usuarios",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/usuarios",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "usuarios"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Lista de usuarios\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "04 - Consultar usuario creado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/usuarios/{{usuarioId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "usuarios",
+            "{{usuarioId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"ID solicitado\", function () { pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"usuarioId\"))); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "05 - Listar eventos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/eventos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Lista de eventos\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "06 - Consultar evento creado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/eventos/{{eventoId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos",
+            "{{eventoId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"ID solicitado\", function () { pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"eventoId\"))); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "07 - Reservar y generar ticket TXT",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/eventos/{{eventoId}}/tickets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos",
+            "{{eventoId}}",
+            "tickets"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": {{usuarioId}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 201\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) { pm.collectionVariables.set(\"ticketId\", pm.response.json().id); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "08 - Consultar ticket",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tickets",
+            "{{ticketId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "09 - Descargar ticket TXT",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/archivo",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tickets",
+            "{{ticketId}}",
+            "archivo"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Archivo TXT\", function () { pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/plain\"); pm.expect(pm.response.text()).to.include(\"TICKET DE RESERVA\"); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "10 - Listar tickets por usuario",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/usuarios/{{usuarioId}}/tickets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "usuarios",
+            "{{usuarioId}}",
+            "tickets"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Incluye ticket creado\", function () { pm.expect(pm.response.json().map(t => t.id)).to.include(Number(pm.collectionVariables.get(\"ticketId\"))); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "11 - Listar tickets por evento",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/eventos/{{eventoId}}/tickets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos",
+            "{{eventoId}}",
+            "tickets"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Incluye ticket creado\", function () { pm.expect(pm.response.json().map(t => t.id)).to.include(Number(pm.collectionVariables.get(\"ticketId\"))); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "12 - Verificar estadísticas de la reserva",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/eventos/{{eventoId}}/estadisticas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos",
+            "{{eventoId}}",
+            "estadisticas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Estadísticas de la reserva\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.eventoId).to.eql(Number(pm.collectionVariables.get(\"eventoId\")));",
+              "    pm.expect(data.totalReservas).to.eql(1);",
+              "    pm.expect(data.cuposDisponibles).to.eql(49);",
+              "    pm.expect(data.montoTotalReservado).to.eql(15000);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "13 - Modificar observación del ticket",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tickets",
+            "{{ticketId}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"observacion\": \"Acceso por puerta norte\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Observacion actualizada\", function () { pm.expect(pm.response.json().observacion).to.eql(\"Acceso por puerta norte\"); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "14 - Descargar TXT actualizado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}/archivo",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tickets",
+            "{{ticketId}}",
+            "archivo"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"TXT actualizado\", function () { pm.expect(pm.response.text()).to.include(\"Acceso por puerta norte\"); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "S3 opcional (activar ejecutarS3 para Collection Runner)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"ejecutarS3\") !== \"true\") { pm.execution.skipRequest(); }"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Subir ticket TXT a S3",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}/s3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}",
+                "s3"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Descargar ticket TXT desde S3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}/s3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}",
+                "s3"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15 - Eliminar ticket",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tickets",
+            "{{ticketId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "16 - Verificar devolución del cupo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/eventos/{{eventoId}}/estadisticas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "eventos",
+            "{{eventoId}}",
+            "estadisticas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Cupo devuelto\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.totalReservas).to.eql(0);",
+              "    pm.expect(data.cuposDisponibles).to.eql(50);",
+              "    pm.expect(data.montoTotalReservado).to.eql(0);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  }
+}
