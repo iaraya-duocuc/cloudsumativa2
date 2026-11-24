@@ -90,4 +90,3 @@ Agrégalos en **Settings → Secrets and variables → Actions → Repository se
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN` | Credenciales temporales de AWS Academy con permisos para leer, escribir y eliminar los objetos del bucket. El workflow exige las tres cuando S3 está activo. |
 
 El despliegue actual usa la región predeterminada `us-east-1`. Cuando caduquen las credenciales del laboratorio, actualiza los tres secretos de AWS y vuelve a desplegar. Para incluir las solicitudes de S3 en Postman, configura `ejecutarS3=true` en la colección.
->>>>>>> Stashed changes
