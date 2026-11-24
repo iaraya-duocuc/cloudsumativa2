@@ -1,4 +1,4 @@
-name: Test, build and publish
+name: Test, publish and deploy
 
 on:
   push:
@@ -73,3 +73,75 @@ jobs:
           docker tag cloudsumativa2:ci "$image:latest"
           docker push "$image:$IMAGE_TAG"
           docker push "$image:latest"
+
+  deploy:
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cloudsumativa2-ec2
+      cancel-in-progress: false
+    steps:
+      - name: Deploy the verified image to EC2
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          USER_SERVER: ${{ secrets.USER_SERVER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          : "${EC2_HOST:?Missing EC2_HOST}" "${USER_SERVER:?Missing USER_SERVER}" "${EC2_SSH_KEY:?Missing EC2_SSH_KEY}"
+          umask 077
+          key=$(mktemp)
+          known_hosts=$(mktemp)
+          trap 'rm -f "$key" "$known_hosts"' EXIT
+          printf '%s\n' "$EC2_SSH_KEY" > "$key"
+
+          ssh -i "$key" -l "$USER_SERVER" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts" \
+            -- "$EC2_HOST" bash -s -- "$IMAGE_TAG" <<'REMOTE'
+          set -euo pipefail
+          image="ignarayaa/cloudsumativa2:$1"
+          container=cloudsumativa2
+          backup="${container}-previous"
+
+          docker pull "$image"
+          if docker container inspect "$backup" >/dev/null 2>&1; then
+            echo "A previous deployment left $backup behind. Resolve it before retrying." >&2
+            exit 1
+          fi
+
+          if docker container inspect "$container" >/dev/null 2>&1; then
+            docker stop "$container"
+            docker rename "$container" "$backup"
+          fi
+
+          if docker run -d --name "$container" --restart unless-stopped \
+            -p 127.0.0.1:8080:8080 \
+            -v cloudsumativa2-data:/app/data \
+            -v cloudsumativa2-tickets:/app/storage/tickets \
+            "$image"; then
+            for attempt in {1..30}; do
+              if curl --fail --silent --max-time 2 http://127.0.0.1:8080/eventos >/dev/null; then
+                if docker container inspect "$backup" >/dev/null 2>&1; then
+                  docker rm "$backup"
+                fi
+                echo "Deployment verified: GET /eventos returned success."
+                exit 0
+              fi
+              sleep 1
+            done
+          fi
+
+          if docker container inspect "$container" >/dev/null 2>&1; then
+            docker logs --tail 100 "$container" || true
+            docker rm -f "$container"
+          fi
+          if docker container inspect "$backup" >/dev/null 2>&1; then
+            docker rename "$backup" "$container"
+            docker start "$container"
+          fi
+          exit 1
+          REMOTE
