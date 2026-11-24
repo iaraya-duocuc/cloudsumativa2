@@ -91,11 +91,20 @@ jobs:
           MYSQL_JDBC_URL: ${{ secrets.MYSQL_JDBC_URL }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          S3_ENABLED: ${{ secrets.S3_ENABLED }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
           : "${EC2_HOST:?Missing EC2_HOST}" "${USER_SERVER:?Missing USER_SERVER}" "${EC2_SSH_KEY:?Missing EC2_SSH_KEY}"
           : "${MYSQL_JDBC_URL:?Missing MYSQL_JDBC_URL}" "${MYSQL_USERNAME:?Missing MYSQL_USERNAME}" "${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}"
+          if [[ "$S3_ENABLED" == true ]]; then
+            : "${S3_BUCKET:?Missing S3_BUCKET}"
+            : "${AWS_ACCESS_KEY_ID:?Missing AWS_ACCESS_KEY_ID}" "${AWS_SECRET_ACCESS_KEY:?Missing AWS_SECRET_ACCESS_KEY}" "${AWS_SESSION_TOKEN:?Missing AWS_SESSION_TOKEN}"
+          fi
           umask 077
           key=$(mktemp)
           known_hosts=$(mktemp)
@@ -105,6 +114,11 @@ jobs:
           {
             printf 'export MYSQL_JDBC_URL=%q MYSQL_USERNAME=%q MYSQL_PASSWORD=%q\n' \
               "$MYSQL_JDBC_URL" "$MYSQL_USERNAME" "$MYSQL_PASSWORD"
+            printf 'export S3_ENABLED=%q S3_BUCKET=%q\n' "${S3_ENABLED:-false}" "$S3_BUCKET"
+            if [[ "$S3_ENABLED" == true ]]; then
+              printf 'export AWS_ACCESS_KEY_ID=%q AWS_SECRET_ACCESS_KEY=%q AWS_SESSION_TOKEN=%q\n' \
+                "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_SESSION_TOKEN"
+            fi
             cat <<'REMOTE'
           set -euo pipefail
           image="ignarayaa/cloudsumativa2:$1"
@@ -126,6 +140,8 @@ jobs:
             -p 127.0.0.1:8080:8080 \
             -e SPRING_PROFILES_ACTIVE=mysql \
             -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
+            -e S3_ENABLED -e S3_BUCKET \
+            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
             -v cloudsumativa2-tickets:/app/storage/tickets \
             "$image"; then
             for attempt in {1..30}; do
