@@ -35,3 +35,7 @@ build/
 # Local H2 database and generated ticket files
 /data/
 /storage/
+
+/AWS.md
+
+/NOTAS.md
