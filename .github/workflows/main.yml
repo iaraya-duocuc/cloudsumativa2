@@ -1,1 +1,75 @@
+name: Test, build and publish
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run tests
+        run: sh ./mvnw -B test
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t cloudsumativa2:ci .
+
+      - name: Verify the API in Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          container=$(docker run --rm -d -p 127.0.0.1::8080 cloudsumativa2:ci)
+          trap 'docker stop "$container" >/dev/null 2>&1 || true' EXIT
+          address=$(docker port "$container" 8080/tcp)
+
+          for attempt in {1..30}; do
+            if response=$(curl --fail --silent --max-time 2 "http://$address/eventos") &&
+              [[ "$response" == "[]" ]]; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          docker logs --tail 100 "$container"
+          exit 1
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publish the verified image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          image=ignarayaa/cloudsumativa2
+          docker tag cloudsumativa2:ci "$image:$IMAGE_TAG"
+          docker tag cloudsumativa2:ci "$image:latest"
+          docker push "$image:$IMAGE_TAG"
+          docker push "$image:latest"
