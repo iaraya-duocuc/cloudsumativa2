@@ -40,5 +40,5 @@ Con S3 habilitado, la reserva sube el ticket automáticamente. También se puede
 **Prueba de arranque**
 
 ```sh
-./mvnw test
+./mvnw test 
 ```
