@@ -124,12 +124,23 @@ jobs:
           image="ignarayaa/cloudsumativa2:$1"
           container=cloudsumativa2
           backup="${container}-previous"
+          efs_mount=/mnt/efs
+          tickets_path="$efs_mount/cloudsumativa2/tickets"
+
+          if ! findmnt -rn -t nfs,nfs4 --mountpoint "$efs_mount" >/dev/null; then
+            echo "Deployment aborted: EFS is not mounted at $efs_mount." >&2
+            exit 1
+          fi
 
           docker pull "$image"
           if docker container inspect "$backup" >/dev/null 2>&1; then
             echo "A previous deployment left $backup behind. Resolve it before retrying." >&2
             exit 1
           fi
+
+          docker run --rm --entrypoint sh \
+            --mount "type=bind,source=$efs_mount,target=/efs" "$image" \
+            -ec 'mkdir -p /efs/cloudsumativa2/tickets && test -w /efs/cloudsumativa2/tickets'
 
           if docker container inspect "$container" >/dev/null 2>&1; then
             docker stop "$container"
@@ -142,7 +153,7 @@ jobs:
             -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
             -e S3_ENABLED -e S3_BUCKET \
             -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
-            -v cloudsumativa2-tickets:/app/storage/tickets \
+            --mount "type=bind,source=$tickets_path,target=/app/storage/tickets" \
             "$image"; then
             for attempt in {1..30}; do
               if curl --fail --silent --max-time 2 http://127.0.0.1:8080/eventos >/dev/null; then
