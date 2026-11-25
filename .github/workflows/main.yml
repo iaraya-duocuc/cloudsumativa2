@@ -40,13 +40,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          container=$(docker run --rm -d -p 127.0.0.1::8080 cloudsumativa2:ci)
+          container=$(docker run --rm -d -p 127.0.0.1::8080 \
+            -e ISSUER_URI=https://issuer.example.invalid \
+            -e AUDIENCE=cloudsumativa2-ci cloudsumativa2:ci)
           trap 'docker stop "$container" >/dev/null 2>&1 || true' EXIT
           address=$(docker port "$container" 8080/tcp)
 
           for attempt in {1..30}; do
-            if response=$(curl --fail --silent --max-time 2 "http://$address/eventos") &&
-              [[ "$response" == "[]" ]]; then
+            if status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --max-time 2 "http://$address/eventos") && [[ "$status" == 401 ]]; then
               exit 0
             fi
             sleep 1
@@ -88,6 +90,8 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           USER_SERVER: ${{ secrets.USER_SERVER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ISSUER_URI: ${{ secrets.ISSUER_URI }}
+          AUDIENCE: ${{ secrets.AUDIENCE }}
           MYSQL_JDBC_URL: ${{ secrets.MYSQL_JDBC_URL }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
@@ -105,6 +109,7 @@ jobs:
             : "${S3_BUCKET:?Missing S3_BUCKET}"
             : "${AWS_ACCESS_KEY_ID:?Missing AWS_ACCESS_KEY_ID}" "${AWS_SECRET_ACCESS_KEY:?Missing AWS_SECRET_ACCESS_KEY}" "${AWS_SESSION_TOKEN:?Missing AWS_SESSION_TOKEN}"
           fi
+          : "${ISSUER_URI:?Missing ISSUER_URI}" "${AUDIENCE:?Missing AUDIENCE}"
           umask 077
           key=$(mktemp)
           known_hosts=$(mktemp)
@@ -112,6 +117,7 @@ jobs:
           printf '%s\n' "$EC2_SSH_KEY" > "$key"
 
           {
+            printf 'export ISSUER_URI=%q AUDIENCE=%q\n' "$ISSUER_URI" "$AUDIENCE"
             printf 'export MYSQL_JDBC_URL=%q MYSQL_USERNAME=%q MYSQL_PASSWORD=%q\n' \
               "$MYSQL_JDBC_URL" "$MYSQL_USERNAME" "$MYSQL_PASSWORD"
             printf 'export S3_ENABLED=%q S3_BUCKET=%q\n' "${S3_ENABLED:-false}" "$S3_BUCKET"
@@ -150,17 +156,19 @@ jobs:
           if docker run -d --name "$container" --restart unless-stopped \
             -p 8080:8080 \
             -e SPRING_PROFILES_ACTIVE=mysql \
+            -e ISSUER_URI -e AUDIENCE \
             -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
             -e S3_ENABLED -e S3_BUCKET \
             -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
             --mount "type=bind,source=$tickets_path,target=/app/storage/tickets" \
             "$image"; then
             for attempt in {1..30}; do
-              if curl --fail --silent --max-time 2 http://127.0.0.1:8080/eventos >/dev/null; then
+              if status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+                --max-time 2 http://127.0.0.1:8080/eventos) && [[ "$status" == 401 ]]; then
                 if docker container inspect "$backup" >/dev/null 2>&1; then
                   docker rm "$backup"
                 fi
-                echo "Deployment verified: GET /eventos returned success."
+                echo "Deployment verified: GET /eventos rejected an unauthenticated request (401)."
                 exit 0
               fi
               sleep 1
