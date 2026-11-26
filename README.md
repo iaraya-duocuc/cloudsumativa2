@@ -20,7 +20,7 @@ La API escucha en `http://localhost:8080`. Usa H2 en `./data/cloudsumativa2.mv.d
 Spring valida el JWT de Azure AD B2C y lee `extension_CONSULTA_ROLE_CLAIM`. `ADMIN` crea eventos, consulta estadísticas, lista usuarios, gestiona cualquier ticket y puede subir TXT manualmente a S3. `CLIENT` consulta eventos y gestiona su perfil y sus propios tickets. `POST /usuarios` vincula el perfil del cliente al emisor y sujeto del JWT. `GET /actuator/health` admite solicitudes sin token.
 
 1. Importa la [colección Postman](postman/cloudsumativa2-autorizacion.postman_collection.json). Completa `adminToken` y `clientToken` con los JWT obtenidos manualmente, sin el prefijo `Bearer`, y `clientEmail` con un correo de prueba. Usa los valores locales de la colección.
-2. Ejecuta la colección completa. Si usas **Send**, sigue los pasos **01–15** entre **Admin** y **Client**. Los pasos **01–04** guardan los IDs automáticamente. Con S3 desactivado, pasa del **08** al **11**.
+2. Ejecuta la colección completa. Si usas **Send**, sigue los pasos **01–17** entre **Admin** y **Client**. Los pasos **01, 03, 04 y 06** guardan los IDs automáticamente. Con S3 desactivado, pasa del **10** al **13**.
 3. En **Éxito** espera `2xx`. En **Rechazo** espera el `401` o `403` indicado en cada solicitud.
 
 ## Despliegue
