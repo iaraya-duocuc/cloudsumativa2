@@ -48,4 +48,4 @@ Para activar S3 en local, pasa esas mismas variables al arrancar. Usa `AWS_REGIO
 
 Registra los **16 pares método y ruta de negocio**, incluidas las rutas con ID. Asocia la integración con EC2 y el autorizador JWT a cada ruta. Usa el mismo emisor y audiencia que en Spring y conserva el encabezado `Authorization`.
 
-Después de desplegar el stage, configura `baseUrl` con la **Invoke URL**, sin barra final. Ejecuta la colección con ambos roles para verificar el acceso con JWT y los rechazos esperados.
+Después de desplegar el stage, configura `baseUrl` con la **Invoke URL**, sin barra final. Ejecuta la colección con ambos roles para verificar el acceso con JWT y los rechazos esperados..x
