@@ -120,6 +120,7 @@ jobs:
 
           {
             printf 'export ISSUER_URI=%q AUDIENCE=%q JWK_SET_URI=%q\n' \
+              "$ISSUER_URI" "$AUDIENCE" "$JWK_SET_URI"
             printf 'export MYSQL_JDBC_URL=%q MYSQL_USERNAME=%q MYSQL_PASSWORD=%q\n' \
               "$MYSQL_JDBC_URL" "$MYSQL_USERNAME" "$MYSQL_PASSWORD"
             printf 'export S3_ENABLED=%q S3_BUCKET=%q\n' "${S3_ENABLED:-false}" "$S3_BUCKET"
