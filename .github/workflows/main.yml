@@ -155,7 +155,7 @@ jobs:
             docker rename "$container" "$backup"
           fi
 
-          if docker run -d --name "$container" --restart unless-stopped \
+          if docker run -d --name "$container" \
             -p 8080:8080 \
             -e SPRING_PROFILES_ACTIVE=mysql \
             -e ISSUER_URI -e AUDIENCE -e JWK_SET_URI \
@@ -167,19 +167,23 @@ jobs:
             for attempt in {1..30}; do
               if curl --fail --silent --output /dev/null --max-time 2 http://127.0.0.1:8080/actuator/health &&
                 status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-                --max-time 2 http://127.0.0.1:8080/eventos) && [[ "$status" == 401 ]]; then
+                --max-time 2 http://127.0.0.1:8080/eventos) && [[ "$status" == 401 ]] &&
+                docker update --restart unless-stopped "$container" >/dev/null; then
                 if docker container inspect "$backup" >/dev/null 2>&1; then
                   docker rm "$backup"
                 fi
                 echo "Deployment verified: health check passed and GET /eventos required authentication."
                 exit 0
               fi
+              if [[ "$(docker container inspect --format '{{.State.Running}}' "$container")" != true ]]; then
+                break
+              fi
               sleep 1
             done
           fi
 
           if docker container inspect "$container" >/dev/null 2>&1; then
-            docker logs --tail 100 "$container" || true
+            docker logs "$container" || true
             docker rm -f "$container"
           fi
           if docker container inspect "$backup" >/dev/null 2>&1; then
