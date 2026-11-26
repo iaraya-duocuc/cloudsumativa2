@@ -2,8 +2,10 @@ package com.duoc.cloudsumativa2.controller;
 
 import com.duoc.cloudsumativa2.model.Usuario;
 import com.duoc.cloudsumativa2.service.UsuarioService;
+import com.duoc.cloudsumativa2.service.UsuarioService.RegistroUsuario;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,9 +27,12 @@ public class UsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<Usuario> crear(@Valid @RequestBody Usuario usuario) {
-        Usuario creado = service.crear(usuario);
-        return ResponseEntity.created(URI.create("/usuarios/" + creado.getId())).body(creado);
+    public ResponseEntity<Usuario> crear(@Valid @RequestBody Usuario usuario, JwtAuthenticationToken autenticacion) {
+        RegistroUsuario registro = service.crear(usuario, autenticacion);
+        Usuario perfil = registro.usuario();
+        return registro.creado()
+                ? ResponseEntity.created(URI.create("/usuarios/" + perfil.getId())).body(perfil)
+                : ResponseEntity.ok(perfil);
     }
 
     @GetMapping
@@ -36,7 +41,8 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    public Usuario buscarPorId(@PathVariable Long id) {
+    public Usuario buscarPorId(@PathVariable Long id, JwtAuthenticationToken autenticacion) {
+        service.exigirTitular(id, service.idCliente(autenticacion));
         return service.buscarPorId(id);
     }
 }

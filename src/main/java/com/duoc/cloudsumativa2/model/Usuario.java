@@ -1,5 +1,6 @@
 package com.duoc.cloudsumativa2.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,6 +23,13 @@ public class Usuario {
     @NotBlank
     @Email
     private String correo;
+
+    @Column(length = 64, unique = true)
+    private String identidadB2c;
+
+    public void vincularIdentidadB2c(String identidadB2c) {
+        this.identidadB2c = identidadB2c;
+    }
 
     public Usuario() {
     }

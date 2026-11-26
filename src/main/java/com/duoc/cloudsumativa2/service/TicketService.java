@@ -42,7 +42,8 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse crear(Long eventoId, Long usuarioId) {
+    public TicketResponse crear(Long eventoId, Long usuarioId, Long idCliente) {
+        usuarios.exigirTitular(usuarioId, idCliente);
         Usuario usuario = usuarios.buscarPorId(usuarioId);
         Evento evento = eventos.buscarParaReserva(eventoId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
@@ -90,13 +91,13 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public TicketResponse consultar(Long id) {
-        return TicketResponse.desde(buscar(id));
+    public TicketResponse consultar(Long id, Long idCliente) {
+        return TicketResponse.desde(buscar(id, idCliente));
     }
 
     @Transactional(readOnly = true)
-    public byte[] descargar(Long id) {
-        return leerArchivo(buscar(id));
+    public byte[] descargar(Long id, Long idCliente) {
+        return leerArchivo(buscar(id, idCliente));
     }
 
     private byte[] leerArchivo(Ticket ticket) {
@@ -113,13 +114,20 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public List<TicketResponse> listarPorUsuario(Long usuarioId) {
+    public List<TicketResponse> listarPorUsuario(Long usuarioId, Long idCliente) {
+        usuarios.exigirTitular(usuarioId, idCliente);
         return buscarPorUsuario(usuarioId).stream().map(TicketResponse::desde).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<TicketResponse> listarPorEvento(Long eventoId) {
-        return buscarPorEvento(eventoId).stream().map(TicketResponse::desde).toList();
+    public List<TicketResponse> listarPorEvento(Long eventoId, Long idCliente) {
+        if (!eventos.existsById(eventoId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado");
+        }
+        List<Ticket> resultado = idCliente == null
+                ? tickets.findByEventoId(eventoId)
+                : tickets.findByEventoIdAndUsuarioId(eventoId, idCliente);
+        return resultado.stream().map(TicketResponse::desde).toList();
     }
 
     private List<Ticket> buscarPorUsuario(Long usuarioId) {
@@ -127,16 +135,10 @@ public class TicketService {
         return tickets.findByUsuarioId(usuarioId);
     }
 
-    private List<Ticket> buscarPorEvento(Long eventoId) {
-        if (!eventos.existsById(eventoId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado");
-        }
-        return tickets.findByEventoId(eventoId);
-    }
-
     @Transactional
-    public TicketResponse modificar(Long id, String observacion) {
+    public TicketResponse modificar(Long id, String observacion, Long idCliente) {
         Ticket ticket = buscarParaModificar(id);
+        usuarios.exigirTitular(ticket.getUsuario().getId(), idCliente);
         ticket.setObservacion(observacion);
         prepararRestauracion(ticket);
         try {
@@ -152,8 +154,9 @@ public class TicketService {
     }
 
     @Transactional
-    public void eliminar(Long id) {
+    public void eliminar(Long id, Long idCliente) {
         Ticket ticket = buscarParaModificar(id);
+        usuarios.exigirTitular(ticket.getUsuario().getId(), idCliente);
         Evento evento = eventos.buscarParaReserva(ticket.getEvento().getId()).orElseThrow();
         prepararRestauracion(ticket);
         try {
@@ -218,12 +221,14 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public byte[] descargarS3(Long id) {
-        return aws.descargar(buscar(id));
+    public byte[] descargarS3(Long id, Long idCliente) {
+        return aws.descargar(buscar(id, idCliente));
     }
 
-    private Ticket buscar(Long id) {
-        return tickets.findById(id)
+    private Ticket buscar(Long id, Long idCliente) {
+        Ticket ticket = tickets.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket no encontrado"));
+        usuarios.exigirTitular(ticket.getUsuario().getId(), idCliente);
+        return ticket;
     }
 }

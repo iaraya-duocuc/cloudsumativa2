@@ -93,6 +93,7 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           ISSUER_URI: ${{ secrets.ISSUER_URI }}
           AUDIENCE: ${{ secrets.AUDIENCE }}
+          JWK_SET_URI: ${{ secrets.JWK_SET_URI }}
           MYSQL_JDBC_URL: ${{ secrets.MYSQL_JDBC_URL }}
           MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
@@ -118,7 +119,7 @@ jobs:
           printf '%s\n' "$EC2_SSH_KEY" > "$key"
 
           {
-            printf 'export ISSUER_URI=%q AUDIENCE=%q\n' "$ISSUER_URI" "$AUDIENCE"
+            printf 'export ISSUER_URI=%q AUDIENCE=%q JWK_SET_URI=%q\n' \
             printf 'export MYSQL_JDBC_URL=%q MYSQL_USERNAME=%q MYSQL_PASSWORD=%q\n' \
               "$MYSQL_JDBC_URL" "$MYSQL_USERNAME" "$MYSQL_PASSWORD"
             printf 'export S3_ENABLED=%q S3_BUCKET=%q\n' "${S3_ENABLED:-false}" "$S3_BUCKET"
@@ -157,7 +158,7 @@ jobs:
           if docker run -d --name "$container" --restart unless-stopped \
             -p 8080:8080 \
             -e SPRING_PROFILES_ACTIVE=mysql \
-            -e ISSUER_URI -e AUDIENCE \
+            -e ISSUER_URI -e AUDIENCE -e JWK_SET_URI \
             -e MYSQL_JDBC_URL -e MYSQL_USERNAME -e MYSQL_PASSWORD \
             -e S3_ENABLED -e S3_BUCKET \
             -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
