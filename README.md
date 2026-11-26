@@ -7,19 +7,25 @@ Requiere Java 21. Ejecutar desde esta carpeta.
 **H2 (por defecto)**
 
 ```sh
+ISSUER_URI='issuer-de-b2c' \
+AUDIENCE='id-del-registro-de-la-api' \
+JWK_SET_URI='jwks-uri-del-flujo-b2c' \
 ./mvnw spring-boot:run
 ```
 
 La API queda disponible en `http://localhost:8080`. Las tablas se crean automáticamente. La base de datos se guarda en `./data/cloudsumativa2.mv.db` y los tickets en `./storage/tickets`.
 
-**Flujo básico de reserva**
+**Autenticación y reservas**
 
-1. Crear un usuario con `POST /usuarios` enviando `nombre` y `correo`.
-2. Crear un evento con `POST /eventos` enviando `nombre`, `fecha` (por ejemplo, `2030-01-01T18:00:00`), `precio` y `cuposDisponibles`.
-3. Reservar un cupo con `POST /eventos/{eventoId}/tickets` enviando `{"usuarioId": 1}`. Usar los identificadores devueltos en los pasos anteriores.
-4. Descargar el archivo TXT con `GET /tickets/{id}/archivo`, usando el identificador del ticket reservado.
+La API valida el JWT de Azure AD B2C y exige el claim `extension_CONSULTA_ROLE_CLAIM` con `ADMIN` o `CLIENT` en las rutas de negocio. `GET /actuator/health` está disponible sin token.
 
-Los tickets se pueden listar con `GET /usuarios/{id}/tickets` o `GET /eventos/{id}/tickets`. Para modificar la observación, usar `PATCH /tickets/{id}` con `{"observacion": "Texto"}`. Al eliminar un ticket con `DELETE /tickets/{id}`, se libera el cupo. Las estadísticas se consultan en `GET /eventos/{id}/estadisticas`.
+El rol `ADMIN` puede crear eventos, consultar estadísticas, listar usuarios, subir tickets manualmente a S3 y gestionar tickets de cualquier usuario. Ambos roles pueden consultar eventos. Un `CLIENT` registra su perfil con `POST /usuarios` y los campos `nombre` y `correo`. Spring vincula el perfil con el emisor y sujeto del token. Si ya existe para esa identidad, el mismo endpoint devuelve el perfil con `200`. Los perfiles anteriores o creados por un administrador quedan disponibles para administración. La API no los vincula a un cliente por coincidencia de correo.
+
+Para reservar, usa `POST /eventos/{eventoId}/tickets` con `{"usuarioId": 1}`, reemplazando el ID por el del perfil. Spring rechaza con `403` si un cliente usa un ID ajeno. Los clientes solo pueden consultar, descargar, modificar y cancelar sus propios tickets. Sus listas por evento también se filtran por titular. Al cancelar una reserva, se recupera el cupo.
+
+**Pruebas en Postman**
+
+Importa la [colección de autorización](postman/cloudsumativa2-autorizacion.postman_collection.json) y abre su pestaña **Variables**. Pega los JWT de Azure AD B2C en los valores locales de `adminToken` y `clientToken`, sin el prefijo `Bearer`. Completa `clientEmail` con un correo de prueba y ejecuta la colección completa. **Éxito** y **Rechazo** tienen subcarpetas **Admin** y **Client**. Si usas **Send**, sigue los números del **01 al 15**, alternando entre roles. Los pasos **01 a 04** guardan automáticamente `eventoId`, `otroUsuarioId`, `clienteId` y `ticketId`, en ese orden. Si S3 está desactivado, pasa del **08** al **11**. En **Rechazo**, el 401 o 403 indicado en cada solicitud cuenta como prueba aprobada. Deja los valores compartidos de los tokens vacíos y evita exportar la colección con credenciales. Asigna el rol `ADMIN` mediante administración en B2C y mantén ese atributo fuera de los campos editables de autoservicio.
 
 **S3 (opcional)**
 
@@ -32,6 +38,9 @@ S3_BUCKET='nombre-del-bucket' \
 AWS_ACCESS_KEY_ID='tu-access-key' \
 AWS_SECRET_ACCESS_KEY='tu-secret-key' \
 AWS_SESSION_TOKEN='tu-session-token' \
+ISSUER_URI='issuer-de-b2c' \
+AUDIENCE='id-del-registro-de-la-api' \
+JWK_SET_URI='jwks-uri-del-flujo-b2c' \
 ./mvnw spring-boot:run
 ```
 
@@ -43,13 +52,11 @@ Con S3 habilitado, la reserva sube el ticket automáticamente. También se puede
 ./mvnw test
 ```
 
-<<<<<<< Updated upstream
-=======
 **Despliegue en EC2**
 
-GitHub Actions ejecuta las pruebas y valida la imagen Docker con H2 en los pull requests hacia `main` y en los pushes a `main`. En un push a `main`, también publica en Docker Hub (`ignarayaa/cloudsumativa2`) con las etiquetas `latest` y el SHA completo del commit. Luego se conecta por SSH a EC2, despliega la imagen etiquetada con ese SHA y comprueba `GET /eventos`.
+GitHub Actions ejecuta las pruebas y valida la imagen Docker con H2 en los pull requests hacia `main` y en los pushes a `main`. En un push a `main`, también publica en Docker Hub (`ignarayaa/cloudsumativa2`) con las etiquetas `latest` y el SHA completo del commit. Luego se conecta por SSH a EC2, despliega la imagen etiquetada con ese SHA y comprueba que `GET /actuator/health` responde correctamente y que `GET /eventos` exige autenticación.
 
-En EC2, el usuario SSH necesita poder ejecutar Docker. El Security Group debe permitir TCP `22` desde el runner que despliega. Para probar desde Postman, permite TCP `8080` desde tu IP pública y configura `baseUrl` como `http://IP_PUBLICA_EC2:8080` en la [colección Postman](postman/cloudsumativa2.postman_collection.json).
+En EC2, el usuario SSH necesita poder ejecutar Docker. El Security Group debe permitir TCP `22` desde el runner que despliega. Para probar desde Postman, permite TCP `8080` desde tu IP pública y configura `baseUrl` como `http://IP_PUBLICA_EC2:8080` en la [colección Postman](postman/cloudsumativa2-autorizacion.postman_collection.json).
 
 **MySQL en RDS**
 
@@ -82,6 +89,9 @@ Agrégalos en **Settings → Secrets and variables → Actions → Repository se
 | `EC2_HOST` | IPv4 pública o DNS público de EC2, sin esquema, usuario ni puerto. |
 | `USER_SERVER` | Usuario SSH de EC2, por ejemplo `ec2-user` o `ubuntu`. |
 | `EC2_SSH_KEY` | Contenido completo de la clave privada SSH de la instancia. |
+| `ISSUER_URI` | Emisor exacto del JWT de B2C. |
+| `AUDIENCE` | Audiencia del registro de la API en B2C. |
+| `JWK_SET_URI` | URL de claves públicas de los metadatos del flujo B2C. Se puede omitir si Spring descubre las claves a partir del emisor. |
 | `MYSQL_JDBC_URL` | `jdbc:mysql://ENDPOINT_RDS:3306/cloudsumativa2`. |
 | `MYSQL_USERNAME` | Usuario de la aplicación en MySQL. |
 | `MYSQL_PASSWORD` | Contraseña de ese usuario. |

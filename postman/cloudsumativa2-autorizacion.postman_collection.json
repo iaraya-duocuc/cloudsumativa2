@@ -1,0 +1,842 @@
+{
+  "info": {
+    "name": "cloudsumativa2 - Autorización y reservas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "## 00 · Completa las variables antes de ejecutar\n\n- Raíz del servicio: baseUrl (por defecto http://localhost:8080).\n- Credenciales: pega los JWT obtenidos manualmente en los valores locales de adminToken y clientToken, sin el prefijo Bearer.\n- Perfil: completa clientEmail con un correo de prueba.\n- S3: pon ejecutarS3=true solo si el backend tiene S3 habilitado.\n\n## Orden obligatorio de la prueba\n\nEn el Runner, ejecuta la colección completa. Si usas Send, sigue 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15, alternando entre Admin y Client según el número. Con S3 deshabilitado, pasa del 08 al 11.\n\n| Paso | Variable que guarda automáticamente | Pasos que la usan |\n| --- | --- | --- |\n| 01 · Crear evento | eventoId | 04, 06, 12 y 15 |\n| 02 · Preparar perfil ajeno | otroUsuarioId | 15 |\n| 03 · Registrar o recuperar mi perfil | clienteId | 04 y 05 |\n| 04 · Reservar para mi perfil | ticketId | 05 a 11 |\n\nDeja los cuatro IDs vacíos antes de comenzar desde cero. Si ejecutas un solo caso, completa sus IDs en Variables con datos existentes y respeta el estado que el caso espera. Cada solicitud muestra su código HTTP esperado. En Rechazo, recibir el 401 o 403 indicado cuenta como prueba aprobada."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ejecutarS3",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "clienteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otroUsuarioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticketId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Éxito",
+      "description": "Las solicitudes están agrupadas por rol. Ejecuta la colección completa o sigue los números si las envías manualmente. Los pasos 09 y 10 son opcionales para S3.",
+      "item": [
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "01 [201] Crear evento como administrador",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"nombre\":\"Evento de autorización\",\"fecha\":\"2030-01-10T20:00:00\",\"precio\":15000,\"cuposDisponibles\":10}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa adminToken. Guarda eventoId automáticamente al recibir 201."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [201]\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if ([201].includes(pm.response.code)) pm.collectionVariables.set(\"eventoId\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ],
+              "id": "c1c26a19-9005-57e4-a25c-5a76f7fba170"
+            },
+            {
+              "name": "02 [201] Preparar perfil ajeno para la prueba de rechazo",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/usuarios",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"nombre\":\"Otro usuario\",\"correo\":\"otro+{{$guid}}@example.com\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa adminToken. Guarda otroUsuarioId automáticamente al recibir 201. Este ID se usa en el paso 15."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [201]\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if ([201].includes(pm.response.code)) pm.collectionVariables.set(\"otroUsuarioId\", pm.response.json().id);",
+                      "pm.execution.setNextRequest(\"7a70ec73-9d62-570a-beb6-0042ad29b63f\");"
+                    ]
+                  }
+                }
+              ],
+              "id": "1fed312b-d01f-5917-9df9-53b4237d5eba"
+            },
+            {
+              "name": "09 [200] Subir TXT como administrador",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/tickets/{{ticketId}}/s3",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "tickets",
+                    "{{ticketId}}",
+                    "s3"
+                  ]
+                },
+                "description": "Opcional. Con ejecutarS3=true, usa adminToken y ticketId del paso 04. Ejecuta antes de cancelar el ticket."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.variables.get(\"ejecutarS3\") !== \"true\") pm.execution.skipRequest();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.execution.setNextRequest(\"295bada0-1c82-57af-ba11-42054dfec693\");"
+                    ]
+                  }
+                }
+              ],
+              "id": "1c483589-a4be-55a4-b87f-908bdd27a231"
+            },
+            {
+              "name": "12 [200] Verificar estadísticas y devolución del cupo",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos/{{eventoId}}/estadisticas",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos",
+                    "{{eventoId}}",
+                    "estadisticas"
+                  ]
+                },
+                "description": "Usa adminToken y eventoId del paso 01. Ejecuta después de cancelar en el paso 11 para comprobar que el cupo se recuperó."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const eventoId = pm.variables.get(\"eventoId\");",
+                      "if (!/^[1-9][0-9]*$/.test(String(eventoId ?? \"\"))) {",
+                      "    console.error(\"Falta un eventoId válido. Ejecuta Crear evento como administrador o completa eventoId en Variables.\");",
+                      "    pm.execution.skipRequest();",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.test(\"Cero reservas y diez cupos\", () => { const data = pm.response.json(); pm.expect(data.totalReservas).to.eql(0); pm.expect(data.cuposDisponibles).to.eql(10); });",
+                      "pm.execution.setNextRequest(\"6f75de3d-5b2f-55e8-9452-3d441f13376f\");"
+                    ]
+                  }
+                }
+              ],
+              "id": "52e8845a-b86d-557e-93b0-25c0ada377ca"
+            }
+          ]
+        },
+        {
+          "name": "Client",
+          "item": [
+            {
+              "name": "03 [200/201] Registrar o recuperar mi perfil",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/usuarios",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "usuarios"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"nombre\":\"Cliente de prueba\",\"correo\":\"{{clientEmail}}\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa clientToken y clientEmail. Guarda clienteId automáticamente al recibir 200 o 201."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200, 201]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "if ([200, 201].includes(pm.response.code)) pm.collectionVariables.set(\"clienteId\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ],
+              "id": "7a70ec73-9d62-570a-beb6-0042ad29b63f"
+            },
+            {
+              "name": "04 [201] Reservar para mi perfil",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos/{{eventoId}}/tickets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos",
+                    "{{eventoId}}",
+                    "tickets"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"usuarioId\":{{clienteId}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa clientToken, eventoId del paso 01 y clienteId del paso 03. Guarda ticketId automáticamente al recibir 201."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [201]\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if ([201].includes(pm.response.code)) pm.collectionVariables.set(\"ticketId\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ],
+              "id": "480b9e41-9f05-5893-ada8-157592e0361f"
+            },
+            {
+              "name": "05 [200] Listar mis tickets",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/usuarios/{{clienteId}}/tickets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "usuarios",
+                    "{{clienteId}}",
+                    "tickets"
+                  ]
+                },
+                "description": "Usa clientToken y clienteId del paso 03. Comprueba que la lista contiene ticketId del paso 04."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.test(\"Incluye mi ticket\", () => pm.expect(pm.response.json().map(t => t.id)).to.include(Number(pm.collectionVariables.get(\"ticketId\"))));"
+                    ]
+                  }
+                }
+              ],
+              "id": "9a334748-9644-5729-b74f-9a30effab849"
+            },
+            {
+              "name": "06 [200] Listar mis tickets por evento",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos/{{eventoId}}/tickets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos",
+                    "{{eventoId}}",
+                    "tickets"
+                  ]
+                },
+                "description": "Usa clientToken y eventoId del paso 01. Comprueba que la lista contiene ticketId del paso 04."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.test(\"Solo incluye mi ticket del evento\", () => pm.expect(pm.response.json().map(t => t.id)).to.eql([Number(pm.collectionVariables.get(\"ticketId\"))]));"
+                    ]
+                  }
+                }
+              ],
+              "id": "b1eb47ec-e73b-5c29-be8a-24ef4895affb"
+            },
+            {
+              "name": "07 [200] Modificar mi ticket",
+              "request": {
+                "method": "PATCH",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "tickets",
+                    "{{ticketId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"observacion\":\"Acceso por puerta norte\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa clientToken y ticketId del paso 04. Modifica la observación que se comprueba al descargar el TXT."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ],
+              "id": "435a6443-834b-5c14-87f9-ca1c04025a2a"
+            },
+            {
+              "name": "08 [200] Descargar TXT actualizado",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/tickets/{{ticketId}}/archivo",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "tickets",
+                    "{{ticketId}}",
+                    "archivo"
+                  ]
+                },
+                "description": "Usa clientToken y ticketId del paso 04. Ejecuta después del paso 07 para verificar el TXT con la observación actualizada."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.test(\"Incluye la observación\", () => pm.expect(pm.response.text()).to.include(\"Acceso por puerta norte\"));",
+                      "pm.execution.setNextRequest(pm.variables.get(\"ejecutarS3\") === \"true\" ? \"1c483589-a4be-55a4-b87f-908bdd27a231\" : \"84e358bf-358a-56c1-b2cb-68a1542d8caa\");"
+                    ]
+                  }
+                }
+              ],
+              "id": "dca01052-1646-5ce8-8982-abc7f1c1d40c"
+            },
+            {
+              "name": "10 [200] Descargar mi TXT desde S3",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/tickets/{{ticketId}}/s3",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "tickets",
+                    "{{ticketId}}",
+                    "s3"
+                  ]
+                },
+                "description": "Opcional. Con ejecutarS3=true, usa clientToken y ticketId del paso 04. Ejecuta después del paso 09 y antes del 11."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.variables.get(\"ejecutarS3\") !== \"true\") pm.execution.skipRequest();"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [200]\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "pm.test(\"Incluye la observación\", () => pm.expect(pm.response.text()).to.include(\"Acceso por puerta norte\"));"
+                    ]
+                  }
+                }
+              ],
+              "id": "295bada0-1c82-57af-ba11-42054dfec693"
+            },
+            {
+              "name": "11 [204] Cancelar mi ticket",
+              "request": {
+                "method": "DELETE",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "tickets",
+                    "{{ticketId}}"
+                  ]
+                },
+                "description": "Usa clientToken y ticketId del paso 04. Ejecuta después de las descargas. A partir de este paso, el ticket queda eliminado."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [204]\", () => pm.expect(pm.response.code).to.be.oneOf([204]));",
+                      "pm.execution.setNextRequest(\"52e8845a-b86d-557e-93b0-25c0ada377ca\");"
+                    ]
+                  }
+                }
+              ],
+              "id": "84e358bf-358a-56c1-b2cb-68a1542d8caa"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rechazo",
+      "description": "Ejecuta después de Éxito. Los códigos 401 y 403 indicados son respuestas esperadas.",
+      "item": [
+        {
+          "name": "Admin",
+          "description": "Verifica que crear un evento, una operación de Admin, se rechace sin token.",
+          "item": [
+            {
+              "name": "13 [401] Crear evento sin token",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"nombre\":\"Intento sin permiso\",\"fecha\":\"2030-01-10T20:00:00\",\"precio\":15000,\"cuposDisponibles\":10}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Envía la solicitud sin token. El 401 es el resultado esperado."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [401]\", () => pm.expect(pm.response.code).to.be.oneOf([401]));"
+                    ]
+                  }
+                }
+              ],
+              "id": "6f75de3d-5b2f-55e8-9452-3d441f13376f"
+            }
+          ]
+        },
+        {
+          "name": "Client",
+          "item": [
+            {
+              "name": "14 [403] Crear evento como cliente",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"nombre\":\"Intento sin permiso\",\"fecha\":\"2030-01-10T20:00:00\",\"precio\":15000,\"cuposDisponibles\":10}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa clientToken para intentar una operación de Admin. El 403 es el resultado esperado."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [403]\", () => pm.expect(pm.response.code).to.be.oneOf([403]));"
+                    ]
+                  }
+                }
+              ],
+              "id": "7cbc944a-6c28-5857-b147-251505c7d2bf"
+            },
+            {
+              "name": "15 [403] Reservar para otro usuario como cliente",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{clientToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/eventos/{{eventoId}}/tickets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "eventos",
+                    "{{eventoId}}",
+                    "tickets"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"usuarioId\":{{otroUsuarioId}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Usa clientToken, eventoId del paso 01 y otroUsuarioId del paso 02. El 403 confirma que el cliente no puede reservar para otro usuario."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Estado esperado [403]\", () => pm.expect(pm.response.code).to.be.oneOf([403]));"
+                    ]
+                  }
+                }
+              ],
+              "id": "92f1d997-e1f7-581f-ac4e-46b8f7610c28"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
